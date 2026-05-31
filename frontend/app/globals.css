@@ -1,0 +1,76 @@
+/* app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-main: #212121;
+  --bg-sidebar: #171717;
+  --bg-input: #2f2f2f;
+  --border: #3d3d3d;
+  --text-primary: #ececec;
+  --text-secondary: #8e8ea0;
+  --accent: #10a37f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3d3d3d;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Prose improvements for markdown */
+.prose pre {
+  background: #1a1a1a !important;
+  border: 1px solid #3d3d3d;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.prose code:not(pre code) {
+  background: #1a1a1a;
+  border: 1px solid #3d3d3d;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.85em;
+}
+
+/* Smooth IE panel animation */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ie-panel-enter {
+  animation: slideDown 0.15s ease-out;
+}
+
+/* Pulsing glow for running stages */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 163, 127, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.15); }
+}
