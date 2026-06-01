@@ -108,26 +108,8 @@ async def _call_model(
 
         # ── 429 rate limit ────────────────────────────────────────────────
         if response.status_code == 429:
-            wait_time = 10.0
-            try:
-                data = response.json()
-                error_meta = data.get("error", {}).get("metadata", {})
-                retry_after_meta = error_meta.get("retry_after_seconds")
-                retry_after_header = response.headers.get("Retry-After")
-                if retry_after_meta is not None:
-                    wait_time = float(retry_after_meta)
-                elif retry_after_header is not None:
-                    wait_time = float(retry_after_header)
-            except Exception:
-                pass
-
-            wait_time = max(2.0, min(wait_time, 35.0))
-            logger.warning(
-                f"[OpenRouter] Rate limit 429 on {model}. "
-                f"Waiting {wait_time}s (attempt {attempt + 1}/{max_attempts})."
-            )
-            await asyncio.sleep(wait_time)
-            continue
+            logger.warning(f"[OpenRouter] Rate limit 429 on {model}. Failing fast to trigger fallback.")
+            raise OpenRouterError(f"Rate limited (429) on {model}")
 
         # ── HTTP-level errors (5xx, 4xx except 429) ───────────────────────
         response.raise_for_status()

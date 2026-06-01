@@ -23,14 +23,30 @@ logger = logging.getLogger(__name__)
 _client: Optional[Client] = None
 
 
+class DummyClient:
+    def table(self, *args, **kwargs): return self
+    def select(self, *args, **kwargs): return self
+    def insert(self, *args, **kwargs): return self
+    def update(self, *args, **kwargs): return self
+    def eq(self, *args, **kwargs): return self
+    def order(self, *args, **kwargs): return self
+    def rpc(self, *args, **kwargs): return self
+    def execute(self, *args, **kwargs):
+        class DummyResult:
+            data = []
+        return DummyResult()
+
 def get_client() -> Client:
     """Lazy singleton Supabase client."""
     global _client
     if _client is None:
-        _client = create_client(
-            settings.supabase_url,
-            settings.supabase_service_key,
-        )
+        if not settings.supabase_url or not settings.supabase_service_key:
+            _client = DummyClient()
+        else:
+            _client = create_client(
+                settings.supabase_url,
+                settings.supabase_service_key,
+            )
     return _client
 
 
