@@ -75,12 +75,19 @@ class Stage02QueryOptimizer(BaseStage):
             else:
                 queries = parsed.get("search_queries", [state.original_query])
                 state.search_queries = [q for q in queries if q][:5]  # Max 5 queries
-                state.reprompt_template = parsed.get(
+                reprompt = parsed.get(
                     "reprompt_template",
                     "After your answer, output your claims as a valid JSON array with fields: "
                     "claim_id (string), claim_text (string), claim_type (string), "
                     "supporting_source_ids (array of SOURCE_N strings), confidence (0.0-1.0)"
                 )
+                if isinstance(reprompt, str) and ("search_queries" in reprompt or "claim_slots" in reprompt or reprompt.startswith("{")):
+                    reprompt = (
+                        "After your answer, output your claims as a valid JSON array with fields: "
+                        "claim_id (string), claim_text (string), claim_type (string), "
+                        "supporting_source_ids (array of SOURCE_N strings), confidence (0.0-1.0)"
+                    )
+                state.reprompt_template = reprompt
 
             self.log(
                 state,
