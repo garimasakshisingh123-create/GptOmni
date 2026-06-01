@@ -44,73 +44,30 @@ class Stage02QueryOptimizer(BaseStage):
                 )
                 return state
 
-            prompt_template = self.load_prompt("prompts/pipeline/v1_query_optimizer.md")
-            prompt = (
-                prompt_template
-                .replace("{{ original_query }}", state.original_query)
-                .replace("{{ intent_type }}", intent.intent_type if intent else "factual")
-                .replace("{{ domain }}", intent.domain if intent else "general")
-                .replace("{{ claim_types }}", ", ".join(intent.claim_types) if intent else "general")
-                .replace("{{ needs_web_search }}", str(intent.needs_web_search) if intent else "true")
+            # To avoid OpenRouter rate limits (429s) and make this stage instantly free,
+            # we use a fast rule-based fallback instead of calling an LLM.
+            state.search_queries = [state.original_query]
+            state.reprompt_template = (
+                "Answer based on the evidence. "
+                "After your answer, output your claims as a valid JSON array with fields: "
+                "claim_id (string), claim_text (string), claim_type (string), "
+                "supporting_source_ids (array of SOURCE_N strings), confidence (0.0-1.0)"
             )
-
-            response = await openrouter_client.chat_completion(
-                model=settings.model_intent,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
-                max_tokens=512,
-            )
-
-            parsed = safe_parse_json(response)
-
-            if not parsed or not isinstance(parsed, dict):
-                logger.warning("Stage 2: Failed to parse query optimizer JSON, using fallback")
-                state.search_queries = [state.original_query]
-                state.reprompt_template = (
-                    "Answer based on the evidence. "
-                    "After your answer, output your claims as a valid JSON array with fields: "
-                    "claim_id (string), claim_text (string), claim_type (string), "
-                    "supporting_source_ids (array of SOURCE_N strings), confidence (0.0-1.0)"
-                )
-            else:
-                queries = parsed.get("search_queries", [state.original_query])
-                state.search_queries = [q for q in queries if q][:5]  # Max 5 queries
-                reprompt = parsed.get(
-                    "reprompt_template",
-                    "After your answer, output your claims as a valid JSON array with fields: "
-                    "claim_id (string), claim_text (string), claim_type (string), "
-                    "supporting_source_ids (array of SOURCE_N strings), confidence (0.0-1.0)"
-                )
-                if isinstance(reprompt, str) and ("search_queries" in reprompt or "claim_slots" in reprompt or reprompt.startswith("{")):
-                    reprompt = (
-                        "After your answer, output your claims as a valid JSON array with fields: "
-                        "claim_id (string), claim_text (string), claim_type (string), "
-                        "supporting_source_ids (array of SOURCE_N strings), confidence (0.0-1.0)"
-                    )
-                state.reprompt_template = reprompt
 
             self.log(
                 state,
                 status="complete",
-                summary=f"Generated {len(state.search_queries)} search queries.",
+                summary=f"Fast rule-based optimization. Using raw query.",
                 detail={
                     "search_queries": state.search_queries,
-                    "reprompt_preview": state.reprompt_template[:100] + "..." if state.reprompt_template else "",
+                    "reprompt_preview": state.reprompt_template[:100] + "...",
                 },
                 started_at=started_at,
             )
 
         except Exception as e:
             logger.error(f"Stage 2 failed: {e}")
-            # Non-critical fallback — use original query as search query
-            state.search_queries = [state.original_query]
-            state.reprompt_template = (
-                "After your answer, output your claims as a valid JSON array with fields: "
-                "claim_id (string), claim_text (string), claim_type (string), "
-                "supporting_source_ids (array), confidence (0.0-1.0)"
-            )
-            self.log(state, status="failed", summary=f"Query optimizer failed, using fallback: {e}",
+            self.log(state, status="failed", summary=f"Query optimizer failed: {e}",
                      started_at=started_at, error=str(e))
-            # Do NOT re-raise — fallback is good enough to continue the pipeline
 
         return state
