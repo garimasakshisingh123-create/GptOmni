@@ -31,10 +31,10 @@ class Settings(BaseSettings):
     pipeline_verification_threshold: float = 0.7
 
     # ── Models ────────────────────────────────────────────────────────────────
-    model_intent: str = "mistralai/mistral-7b-instruct:free"
-    model_generation: str = "google/gemma-3-27b-it:free"
-    model_verification: str = "google/gemma-3-12b-it:free"
-    model_arithmetic: str = "mistralai/mistral-7b-instruct:free"
+    model_intent: str = "meta-llama/llama-3.2-3b-instruct:free"
+    model_generation: str = "google/gemma-4-31b-it:free"
+    model_verification: str = "openai/gpt-oss-20b:free"
+    model_arithmetic: str = "meta-llama/llama-3.2-3b-instruct:free"
 
     # ── App ───────────────────────────────────────────────────────────────────
     app_env: str = "development"

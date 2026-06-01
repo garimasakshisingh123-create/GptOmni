@@ -31,30 +31,29 @@ OPENROUTER_HEADERS = {
 # ---------------------------------------------------------------------------
 _FALLBACK_CHAINS: dict[str, list[str]] = {
     # Intent & arithmetic: small/fast models
-    "mistralai/mistral-7b-instruct:free": [
-        "google/gemma-3-4b-it:free",
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "qwen/qwen3-8b:free",
+    "meta-llama/llama-3.2-3b-instruct:free": [
+        "liquid/lfm-2.5-1.2b-instruct:free",
+        "openai/gpt-oss-20b:free",
+        "google/gemma-4-26b-a4b-it:free",
     ],
-    # Generation: large reliable models — gemma-3-27b is primary
-    "google/gemma-3-27b-it:free": [
+    # Generation: large reliable models — gemma-4-31b is primary
+    "google/gemma-4-31b-it:free": [
         "meta-llama/llama-3.3-70b-instruct:free",
-        "deepseek/deepseek-r1:free",
-        "deepseek/deepseek-r1-0528:free",
-        "qwen/qwen3-14b:free",
-        "google/gemma-3-12b-it:free",
+        "qwen/qwen3-next-80b-a3b-instruct:free",
+        "openai/gpt-oss-120b:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
     ],
-    # DeepSeek-R1 (used as fallback in Stage 6 cascade)
+    # DeepSeek-R1 (if someone manually tries to use it)
     "deepseek/deepseek-r1:free": [
-        "deepseek/deepseek-r1-0528:free",
         "meta-llama/llama-3.3-70b-instruct:free",
-        "google/gemma-3-27b-it:free",
+        "google/gemma-4-31b-it:free",
     ],
     # Verification: mid-size instruction models
-    "google/gemma-3-12b-it:free": [
-        "google/gemma-3-27b-it:free",
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "qwen/qwen3-8b:free",
+    "openai/gpt-oss-20b:free": [
+        "google/gemma-4-31b-it:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen3-next-80b-a3b-instruct:free",
     ],
 }
 
@@ -73,9 +72,9 @@ def _get_fallbacks(model: str) -> list[str]:
             return chain
     # Generic fallback for unknown models
     return [
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "qwen/qwen3-8b:free",
-        "google/gemma-3-4b-it:free",
+        "meta-llama/llama-3.2-3b-instruct:free",
+        "liquid/lfm-2.5-1.2b-instruct:free",
+        "google/gemma-4-26b-a4b-it:free",
     ]
 
 
