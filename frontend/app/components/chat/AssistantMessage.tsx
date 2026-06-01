@@ -52,7 +52,28 @@ export function AssistantMessage({
             prose-li:text-zinc-200
             prose-blockquote:border-l-[#10a37f] prose-blockquote:text-zinc-400">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content || ''}
+              {(() => {
+                let cleaned = content || '';
+                // Remove the claims JSON block at the end
+                const jsonMatch = cleaned.lastIndexOf('```json');
+                if (jsonMatch !== -1) {
+                  cleaned = cleaned.substring(0, jsonMatch);
+                }
+                
+                // Remove trailing "```" if it's caught in the stream before "json"
+                if (cleaned.endsWith('```')) {
+                  cleaned = cleaned.slice(0, -3);
+                }
+
+                // Remove "Sources: [...]" lines
+                cleaned = cleaned.replace(/^(?:\*\*?)?Sources:(?:\*\*?)?\s*.*$/gm, '');
+
+                // Remove inline citations like [1], [²], [SOURCE_1], etc.
+                cleaned = cleaned.replace(/\[(?:SOURCE_)?\d+\]/gi, '');
+                cleaned = cleaned.replace(/\[[¹²³⁴⁵⁶⁷⁸⁹⁰]+\]/g, '');
+
+                return cleaned.trim();
+              })()}
             </ReactMarkdown>
           </div>
 
