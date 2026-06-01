@@ -95,7 +95,7 @@ class Stage02QueryOptimizer(BaseStage):
 
         except Exception as e:
             logger.error(f"Stage 2 failed: {e}")
-            # Non-critical fallback
+            # Non-critical fallback — use original query as search query
             state.search_queries = [state.original_query]
             state.reprompt_template = (
                 "After your answer, output your claims as a valid JSON array with fields: "
@@ -104,6 +104,6 @@ class Stage02QueryOptimizer(BaseStage):
             )
             self.log(state, status="failed", summary=f"Query optimizer failed, using fallback: {e}",
                      started_at=started_at, error=str(e))
-            raise  # Stage 2 failure is critical — abort pipeline
+            # Do NOT re-raise — fallback is good enough to continue the pipeline
 
         return state

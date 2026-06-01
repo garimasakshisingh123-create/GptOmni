@@ -66,3 +66,22 @@ export async function sendChatMessage(query: string, conversationId: string, sig
   if (!res.ok) throw new Error(`Chat request failed: ${res.status}`);
   return res;
 }
+
+export async function saveMessage(
+  conversationId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  runId?: string,
+): Promise<void> {
+  try {
+    const auth = await getAuthHeader();
+    await fetch(`${API_URL}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ conversation_id: conversationId, role, content, run_id: runId }),
+    });
+  } catch (e) {
+    // Non-critical — message is still visible in the UI via local state
+    console.warn('Failed to persist message to DB:', e);
+  }
+}

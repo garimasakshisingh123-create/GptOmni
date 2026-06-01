@@ -101,6 +101,13 @@ class CreateConversationRequest(BaseModel):
     title: Optional[str] = "New Conversation"
 
 
+class SaveMessageRequest(BaseModel):
+    conversation_id: str
+    role: str
+    content: str
+    run_id: Optional[str] = None
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -170,6 +177,26 @@ async def get_messages(
     return {"messages": messages}
 
 
+@app.post("/api/messages")
+async def save_message(
+    request: SaveMessageRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Save a single message (user or assistant).
+    Called by the frontend to persist messages explicitly.
+    This avoids double-saving (frontend shows it optimistically, then persists once here).
+    """
+    msg_id = await supabase_client.save_message(
+        conversation_id=request.conversation_id,
+        user_id=user.id,
+        role=request.role,
+        content=request.content,
+        run_id=request.run_id,
+    )
+    return {"id": msg_id}
+
+
 @app.get("/api/runs/{run_id}")
 async def get_run(
     run_id: str,
@@ -190,6 +217,8 @@ async def get_run(
     except Exception as e:
         logger.error(f"get_run failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch run data")
+
+
 
 
 

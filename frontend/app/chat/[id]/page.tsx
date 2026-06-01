@@ -11,7 +11,7 @@ import { AssistantMessage } from '../../components/chat/AssistantMessage';
 import { TypingIndicator } from '../../components/chat/TypingIndicator';
 import { usePipelineStream, PipelineStreamState } from '../../hooks/usePipelineStream';
 import { useSupabase } from '../../hooks/useSupabase';
-import { fetchMessages, sendChatMessage } from '../../lib/api';
+import { fetchMessages, sendChatMessage, saveMessage } from '../../lib/api';
 import { Message } from '../../types/chat';
 
 interface MessageWithPipeline extends Message {
@@ -31,6 +31,13 @@ export default function ConversationPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const queryProcessedRef = useRef(false);
+  // Tracks the latest streamingAnswer so abort catch can access non-stale value
+  const abortedAnswerRef = useRef<string>('');
+
+  // Keep abortedAnswerRef in sync with live streaming answer
+  useEffect(() => {
+    abortedAnswerRef.current = pipeline.streamingAnswer;
+  }, [pipeline.streamingAnswer]);
 
   // Scroll to bottom
   const scrollToBottom = () => {
@@ -106,6 +113,9 @@ export default function ConversationPage() {
       return updated;
     });
 
+    // Persist user message to DB (fire-and-forget — UI already shows it)
+    saveMessage(conversationId, 'user', text);
+
     setIsLoading(true);
     pipeline.reset();
 
@@ -119,8 +129,8 @@ export default function ConversationPage() {
     try {
       const response = await sendChatMessage(text, conversationId, abortController.signal);
 
-      // Consume the SSE stream
-      await pipeline.consumeStream(response);
+      // Consume the SSE stream — returns the final answer directly (avoids stale state)
+      const finalAnswer = await pipeline.consumeStream(response);
 
       // Add the completed assistant message
       const assistantMsg: MessageWithPipeline = {
@@ -128,7 +138,7 @@ export default function ConversationPage() {
         conversation_id: conversationId,
         user_id: user.id,
         role: 'assistant',
-        content: pipeline.streamingAnswer,
+        content: finalAnswer || 'No response generated.',
         created_at: new Date().toISOString(),
         pipelineState: { ...pipeline },
       };
@@ -141,10 +151,16 @@ export default function ConversationPage() {
         return updated;
       });
 
+      // Persist assistant message to DB
+      saveMessage(conversationId, 'assistant', finalAnswer || '');
+
     } catch (e: unknown) {
       if (abortController.signal.aborted) {
-        // Interrupted by stop generating
-        const partialAnswer = pipeline.streamingAnswer || "Generation stopped.";
+        // Interrupted by stop generating — use the last known streamingAnswer from state
+        // We read it from the DOM ref trick: capture it from state via a closure won't work,
+        // so we pass a ref that tracks the latest value.
+        const partialAnswer = abortedAnswerRef.current || "Generation stopped.";
+        abortedAnswerRef.current = '';
         const assistantMsg: MessageWithPipeline = {
           id: tempAssistantId,
           conversation_id: conversationId,

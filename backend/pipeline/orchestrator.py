@@ -129,13 +129,10 @@ async def run_pipeline(
     )
     state.pipeline_run_id = run_db_id
 
-    # Save the user message
-    await supabase_client.save_message(
-        conversation_id=conversation_id,
-        user_id=user_id,
-        role="user",
-        content=query,
-    )
+    # NOTE: We do NOT save the user message here.
+    # The frontend adds it optimistically to the UI immediately.
+    # Saving it from the backend would create a duplicate when messages are
+    # fetched from the DB on the next load.
 
     # Instantiate all 9 stages
     stages = [
@@ -177,12 +174,9 @@ async def run_pipeline(
                 "duration_ms": stage_log.duration_ms if stage_log else None,
             })
 
-            # After stage 6 (generation), stream the answer as tokens
-            if stage.stage_number == 6 and state.final_answer is None:
-                # Emit the raw generation as a single token event
-                # (full streaming would require refactoring to use OpenRouter streaming)
-                if state.raw_generation:
-                    yield sse_event("token", {"text": state.raw_generation})
+            # NOTE: We do NOT emit a token after stage 6 here.
+            # The final answer token is emitted once after stage 8 (post-processing)
+            # so the displayed text is always the post-processed version.
 
         except Exception as e:
             logger.error(f"Pipeline stage {stage.stage_number} raised: {e}")

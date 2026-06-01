@@ -57,8 +57,15 @@ export function usePipelineStream() {
     });
   }, []);
 
-  const consumeStream = useCallback(async (response: Response) => {
+  /**
+   * Consumes the SSE stream and returns the final answer string directly.
+   * This avoids stale-closure issues where React state hasn't updated yet
+   * when the caller reads pipeline.streamingAnswer after await.
+   */
+  const consumeStream = useCallback(async (response: Response): Promise<string> => {
     reset();
+
+    let finalAnswer = '';
 
     for await (const event of parseSSEStream(response)) {
       const data = event.data as Record<string, unknown>;
@@ -93,9 +100,15 @@ export function usePipelineStream() {
           return nextState;
         });
       } else if (event.event === 'token') {
+        // Streaming token — update UI progressively
         const text = (data as { text: string }).text || '';
+        finalAnswer = text; // capture last token as current answer
         setState(prev => ({ ...prev, streamingAnswer: text }));
       } else if (event.event === 'done') {
+        // Final event — resolve all state
+        const doneAnswer = (data.final_answer as string) || finalAnswer;
+        finalAnswer = doneAnswer;
+
         setState(prev => ({
           ...prev,
           isComplete: true,
@@ -104,15 +117,20 @@ export function usePipelineStream() {
           claims: (data.claims as Claim[]) || [],
           verificationResults: (data.verification_results as VerificationResult[]) || [],
           provenance: (data.provenance as ProvenanceRecord) || null,
-          streamingAnswer: (data.final_answer as string) || prev.streamingAnswer,
+          streamingAnswer: doneAnswer,
           stages: prev.stages.map(s =>
             s.status === 'pending' || s.status === 'running'
               ? { ...s, status: 'complete' as StageStatus }
               : s
           ),
         }));
+
+        // Break out of the loop — we're done
+        break;
       }
     }
+
+    return finalAnswer;
   }, [reset]);
 
   return { ...state, consumeStream, reset };
