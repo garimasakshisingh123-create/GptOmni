@@ -108,7 +108,8 @@ async def _call_model(
 
         # ── 429 rate limit ────────────────────────────────────────────────
         if response.status_code == 429:
-            logger.warning(f"[OpenRouter] Rate limit 429 on {model}. Failing fast to trigger fallback.")
+            logger.warning(f"[OpenRouter] Rate limit 429 on {model}. Waiting 3s before fallback to avoid global rate limit ban.")
+            await asyncio.sleep(3.0)
             raise OpenRouterError(f"Rate limited (429) on {model}")
 
         # ── HTTP-level errors (5xx, 4xx except 429) ───────────────────────
