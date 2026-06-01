@@ -45,10 +45,10 @@ export default function ChatPage() {
         {/* Welcome area */}
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#10a37f] to-emerald-600 mb-4 shadow-lg shadow-emerald-900/30">
-              <Zap className="w-7 h-7 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-zinc-800 mb-4 shadow-lg overflow-hidden">
+              <img src="/logo.jpg" alt="ChatGPT Omni Logo" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-3xl font-bold text-zinc-100">GptOmni</h1>
+            <h1 className="text-3xl font-bold text-zinc-100">ChatGPT Omni</h1>
             <p className="text-zinc-400 mt-2 max-w-md">
               Every answer is grounded in real-time retrieved evidence,
               verified claim by claim, with full source provenance.

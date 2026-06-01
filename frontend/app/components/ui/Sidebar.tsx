@@ -35,12 +35,12 @@ export function Sidebar({ onNewChat }: Props) {
       {/* Logo */}
       <div className="px-4 py-4 border-b border-zinc-800">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#10a37f] to-emerald-600 flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-zinc-800 flex items-center justify-center">
+            <img src="/logo.jpg" alt="ChatGPT Omni Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="text-zinc-100 font-semibold text-lg tracking-tight">GptOmni</span>
+          <span className="text-zinc-100 font-semibold text-lg tracking-tight">ChatGPT Omni</span>
         </div>
-        <p className="text-xs text-zinc-500 mt-1 ml-9">Grounded · Verified · Cited</p>
+        <p className="text-xs text-zinc-500 mt-1 ml-10">Grounded · Verified · Cited</p>
       </div>
 
       {/* New Chat */}
