@@ -14,9 +14,11 @@ export default function ChatPage() {
   const { user, loading } = useSupabase();
   const { createConversation } = useConversations();
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSend = async (text: string) => {
-    if (!user) return;
+    if (!user || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const convId = await createConversation(text.slice(0, 60));
       if (convId) {
@@ -24,6 +26,7 @@ export default function ChatPage() {
       }
     } catch (e) {
       console.error('Error starting conversation:', e);
+      setIsSubmitting(false);
     }
   };
 

@@ -205,8 +205,17 @@ export default function ConversationPage() {
   // Handle ?q= query param (redirect from new chat page)
   useEffect(() => {
     const q = searchParams.get('q');
-    if (q && !queryProcessedRef.current) {
+    if (!q) return;
+
+    // Use sessionStorage to prevent double processing during React Strict Mode mounts/remounts
+    const sessionKey = `processed_query_${conversationId}_${q}`;
+    const alreadyProcessed = typeof window !== 'undefined' ? sessionStorage.getItem(sessionKey) : null;
+
+    if (!alreadyProcessed && !queryProcessedRef.current) {
       queryProcessedRef.current = true;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(sessionKey, 'true');
+      }
       handleSend(q);
 
       // Clean up the URL query param so a page refresh doesn't trigger it again

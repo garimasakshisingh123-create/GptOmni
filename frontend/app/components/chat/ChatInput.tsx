@@ -1,6 +1,6 @@
 'use client';
 // app/components/chat/ChatInput.tsx
-import { useState, useRef, KeyboardEvent } from 'react';
+import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Send } from 'lucide-react';
 
 interface Props {
@@ -11,10 +11,20 @@ interface Props {
 export function ChatInput({ onSend, disabled = false }: Props) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isSubmittingRef = useRef(false);
+
+  // Reset our submission guard once the disabled prop goes back to false
+  useEffect(() => {
+    if (!disabled) {
+      isSubmittingRef.current = false;
+    }
+  }, [disabled]);
 
   const handleSend = () => {
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || isSubmittingRef.current) return;
+    
+    isSubmittingRef.current = true;
     onSend(trimmed);
     setValue('');
     // Reset height
