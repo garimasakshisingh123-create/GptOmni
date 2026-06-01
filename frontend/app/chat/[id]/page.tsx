@@ -9,7 +9,7 @@ import { Sidebar } from '../../components/ui/Sidebar';
 import { ChatInput } from '../../components/chat/ChatInput';
 import { AssistantMessage } from '../../components/chat/AssistantMessage';
 import { TypingIndicator } from '../../components/chat/TypingIndicator';
-import { usePipelineStream, PipelineStreamState } from '../../hooks/usePipelineStream';
+import { usePipelineStream, PipelineStreamState, ConsumeStreamResult } from '../../hooks/usePipelineStream';
 import { useSupabase } from '../../hooks/useSupabase';
 import { fetchMessages, sendChatMessage, saveMessage } from '../../lib/api';
 import { Message } from '../../types/chat';
@@ -129,10 +129,11 @@ export default function ConversationPage() {
     try {
       const response = await sendChatMessage(text, conversationId, abortController.signal);
 
-      // Consume the SSE stream — returns the final answer directly (avoids stale state)
-      const finalAnswer = await pipeline.consumeStream(response);
+      // Consume the SSE stream — returns both the final answer and a complete
+      // non-stale snapshot of the pipeline state (avoids stale React closure issues)
+      const { finalAnswer, finalState }: ConsumeStreamResult = await pipeline.consumeStream(response);
 
-      // Add the completed assistant message
+      // Add the completed assistant message using finalState (authoritative IE data)
       const assistantMsg: MessageWithPipeline = {
         id: tempAssistantId,
         conversation_id: conversationId,
@@ -140,7 +141,7 @@ export default function ConversationPage() {
         role: 'assistant',
         content: finalAnswer || 'No response generated.',
         created_at: new Date().toISOString(),
-        pipelineState: { ...pipeline },
+        pipelineState: finalState,
       };
       
       setMessages(prev => {
@@ -262,8 +263,11 @@ export default function ConversationPage() {
               </div>
             ))}
 
-            {/* Streaming state */}
-            {isLoading && (
+            {/* Streaming state — only shown while pipeline is actively running.
+                Once pipeline.isComplete is true the stream is done and the committed
+                message (with full IE data) has been added to the messages array above,
+                so we hide this live view to prevent showing the answer twice. */}
+            {isLoading && !pipeline.isComplete && (
               <>
                 {pipeline.currentStageNumber === 0 ? (
                   <TypingIndicator />
