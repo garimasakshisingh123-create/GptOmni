@@ -76,13 +76,17 @@ class Stage05Context(BaseStage):
             )
 
             if not docs:
-                # No sources — build a minimal block
+                # No sources found — instruct the model to answer from training knowledge
+                intent_type = state.intent.intent_type if state.intent else "factual"
                 state.context_block = (
                     "=== EVIDENCE BLOCK ===\n"
                     "No external sources were retrieved for this query.\n"
+                    "You MUST answer this question using your training knowledge.\n"
+                    "Be thorough, detailed, and well-structured in your response.\n"
                     "=== END EVIDENCE BLOCK ===\n\n"
                     + reprompt
                 )
+
                 token_count = len(state.context_block) // 4
                 self.log(
                     state,

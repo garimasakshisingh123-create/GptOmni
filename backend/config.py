@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # ── Models ────────────────────────────────────────────────────────────────
     model_intent: str = "mistralai/mistral-7b-instruct:free"
-    model_generation: str = "deepseek/deepseek-r1:free"
+    model_generation: str = "google/gemma-3-27b-it:free"
     model_verification: str = "google/gemma-3-12b-it:free"
     model_arithmetic: str = "mistralai/mistral-7b-instruct:free"
 

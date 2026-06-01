@@ -1,7 +1,8 @@
 """
 backend/pipeline/stage_06_generation.py
 Stage 6: Output Generation with Reasoning Scaffolds
-Calls DeepSeek-R1 with CoT. Extracts <think> block and JSON claims.
+Generates a comprehensive, grounded answer using context from Stage 5.
+Falls back through model chain if primary model returns too-short or failed output.
 """
 
 from __future__ import annotations
@@ -15,7 +16,6 @@ from backend.models.pipeline_state import PipelineState
 from backend.pipeline.stage import BaseStage
 from backend.services import openrouter_client
 from backend.utils.claim_extractor import extract_claims_from_text
-from backend.utils.json_parser import safe_parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,25 @@ def _extract_json_claims_block(text: str) -> tuple[str, str]:
     return text, ""
 
 
+def _is_answer_too_short(text: str) -> bool:
+    """Return True if the answer is suspiciously short (likely a failure)."""
+    if not text:
+        return True
+    words = text.split()
+    return len(words) < 30
+
+
+# Model cascade — try in order until we get a solid answer
+# We use a more reliable model first, DeepSeek-R1 as a quality option later
+GENERATION_MODEL_CASCADE = [
+    "google/gemma-3-27b-it:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "deepseek/deepseek-r1:free",
+    "google/gemma-3-12b-it:free",
+    "qwen/qwen3-14b:free",
+]
+
+
 class Stage06Generation(BaseStage):
     stage_number = 6
     stage_name = "Output Generation"
@@ -68,27 +87,83 @@ class Stage06Generation(BaseStage):
         try:
             system_prompt = self.load_prompt("prompts/system/gptomni_base.md")
 
-            # Build the user message: context_block + query + instructions
+            # Build user message — context block already contains reprompt instruction
+            # from Stage 5, so we do NOT repeat the claims instruction here (avoids confusion).
             context = state.context_block or ""
-            reprompt = state.reprompt_template or ""
             query = state.original_query
 
-            user_message = f"{context}\n\n---\n\nUSER QUERY:\n{query}\n\n---\n\nINSTRUCTIONS:\n{reprompt}\n\nThink step by step. Use the evidence. Cite sources. Then output your JSON claims array."
-
-            response = await openrouter_client.chat_completion(
-                model=settings.model_generation,
-                messages=[{"role": "user", "content": user_message}],
-                system=system_prompt,
-                temperature=0.3,
-                max_tokens=2000,
+            user_message = (
+                f"{context}\n\n"
+                f"---\n\n"
+                f"USER QUERY:\n{query}\n\n"
+                f"---\n\n"
+                f"Please provide a comprehensive, well-structured answer. "
+                f"Use the evidence above where available. "
+                f"Use headers, bullet points, and clear formatting. "
+                f"After your answer, output the JSON claims array as instructed."
             )
 
-            # 1. Extract <think> block → reasoning_trace
-            response_no_think, think_text = _strip_think_block(response)
-            state.reasoning_trace = think_text if think_text else None
+            answer_text = ""
+            think_text = ""
+            json_str = ""
+            model_used = settings.model_generation
 
-            # 2. Extract JSON claims block
-            answer_text, json_str = _extract_json_claims_block(response_no_think)
+            # Try each model in the cascade until we get a satisfactory answer
+            primary = settings.model_generation
+            # Build the full cascade starting from config model
+            cascade = [primary]
+            for m in GENERATION_MODEL_CASCADE:
+                if m != primary:
+                    cascade.append(m)
+
+            for model in cascade:
+                try:
+                    logger.info(f"Stage 6: Trying generation model: {model}")
+                    response = await openrouter_client.chat_completion(
+                        model=model,
+                        messages=[{"role": "user", "content": user_message}],
+                        system=system_prompt,
+                        temperature=0.3,
+                        max_tokens=3500,
+                    )
+
+                    # 1. Extract <think> block → reasoning_trace
+                    response_no_think, think_text_candidate = _strip_think_block(response)
+                    # 2. Extract JSON claims block
+                    candidate_answer, json_str_candidate = _extract_json_claims_block(response_no_think)
+
+                    if not _is_answer_too_short(candidate_answer):
+                        # Good answer — use it
+                        answer_text = candidate_answer
+                        think_text = think_text_candidate
+                        json_str = json_str_candidate
+                        model_used = model
+                        logger.info(f"Stage 6: Got satisfactory answer from {model} ({len(answer_text.split())} words)")
+                        break
+                    else:
+                        logger.warning(
+                            f"Stage 6: Model {model} returned too-short answer "
+                            f"({len(candidate_answer.split())} words). Trying next model..."
+                        )
+                        # Store partial answer in case all models fail
+                        if not answer_text or len(candidate_answer) > len(answer_text):
+                            answer_text = candidate_answer
+                            think_text = think_text_candidate
+                            json_str = json_str_candidate
+                            model_used = model
+
+                except Exception as e:
+                    logger.warning(f"Stage 6: Model {model} failed: {e}. Trying next model...")
+                    continue
+
+            if not answer_text:
+                # All models failed — give a clear error message
+                answer_text = (
+                    "I was unable to generate a response at this time due to model availability issues. "
+                    "Please try again in a moment."
+                )
+
+            state.reasoning_trace = think_text if think_text else None
             state.raw_generation = answer_text.strip()
 
             # 3. Parse claims
@@ -128,13 +203,14 @@ class Stage06Generation(BaseStage):
                 summary=(
                     f"Generated {len(claims)} claims extracted. "
                     f"Answer: {word_count} words. "
+                    f"Model used: {model_used}. "
                     f"Reasoning trace: {think_tokens} tokens."
                 ),
                 detail={
                     "claim_count": len(claims),
                     "answer_words": word_count,
                     "reasoning_tokens": think_tokens,
-                    "model_used": settings.model_generation,
+                    "model_used": model_used,
                     "claims_preview": [c.claim_text[:80] for c in claims[:3]],
                 },
                 started_at=started_at,

@@ -36,11 +36,19 @@ _FALLBACK_CHAINS: dict[str, list[str]] = {
         "meta-llama/llama-3.1-8b-instruct:free",
         "qwen/qwen3-8b:free",
     ],
-    # Generation: large reasoning models
+    # Generation: large reliable models — gemma-3-27b is primary
+    "google/gemma-3-27b-it:free": [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "deepseek/deepseek-r1:free",
+        "deepseek/deepseek-r1-0528:free",
+        "qwen/qwen3-14b:free",
+        "google/gemma-3-12b-it:free",
+    ],
+    # DeepSeek-R1 (used as fallback in Stage 6 cascade)
     "deepseek/deepseek-r1:free": [
         "deepseek/deepseek-r1-0528:free",
-        "google/gemma-3-27b-it:free",
         "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemma-3-27b-it:free",
     ],
     # Verification: mid-size instruction models
     "google/gemma-3-12b-it:free": [
@@ -194,7 +202,7 @@ async def chat_completion(
 
     models_to_try = [model] + _get_fallbacks(model)
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=150.0) as client:
         last_error: Exception = RuntimeError("No models tried.")
         for idx, current_model in enumerate(models_to_try):
             if idx > 0:

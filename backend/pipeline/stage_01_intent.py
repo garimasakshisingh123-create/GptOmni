@@ -51,6 +51,33 @@ class Stage01Intent(BaseStage):
                     "confidence": 0.5,
                 }
 
+            # ── Safety check: never misclassify factual questions as conversational ──
+            # Small LLMs often call factual questions "conversational".
+            # If the query contains any question keyword, force it to factual.
+            QUESTION_KEYWORDS = {
+                "what", "who", "when", "where", "which", "how", "why",
+                "list", "name", "tell", "explain", "define", "describe",
+                "give", "show", "find", "compare", "summarize", "calculate",
+                "enumerate", "count", "identify", "outline", "detail", "state",
+                "all", "every", "any", "many", "much", "is", "are", "was",
+                "were", "does", "do", "did", "can", "will", "should",
+            }
+            query_lower = state.original_query.lower().strip()
+            query_words = set(query_lower.split())
+            if (
+                parsed.get("intent_type") == "conversational"
+                and (
+                    query_words & QUESTION_KEYWORDS
+                    or "?" in state.original_query
+                )
+            ):
+                logger.info(
+                    "Stage 1: Safety override — reclassifying 'conversational' → 'factual' "
+                    "(query contains question keywords or '?')"
+                )
+                parsed["intent_type"] = "factual"
+                parsed["needs_web_search"] = True
+
             state.intent = IntentResult(
                 intent_type=parsed.get("intent_type", "factual"),
                 needs_web_search=bool(parsed.get("needs_web_search", True)),
